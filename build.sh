@@ -4,6 +4,8 @@ APP=bb
 APP_DBG=`printf "%s_dbg" "$APP"`
 INST_DIR=/usr/sbin
 CONF_DIR=/etc/controller
+PSQL_INCLUDE_DIR=/usr/include/postgresql
+PSQL_LIB_DIR=/usr/lib/i386-linux-gnu
 CONF_DIR_APP=$CONF_DIR/$APP
 
 #DEBUG_PARAM="-Wall -pedantic"
@@ -53,6 +55,7 @@ function build_lib {
 	gcc $1  -c app.c -D_REENTRANT $DEBUG_PARAM  && \
 	gcc $1  -c crc.c -D_REENTRANT $DEBUG_PARAM && \
 	gcc $1  -c dbl.c -D_REENTRANT $DEBUG_PARAM  && \
+	gcc $1  -c dbp.c -D_REENTRANT $DEBUG_PARAM -I$PSQL_INCLUDE_DIR  && \
 	gcc $1  -c configl.c -D_REENTRANT $DEBUG_PARAM  && \
 	gcc $1  -c timef.c -D_REENTRANT $DEBUG_PARAM  && \
 	gcc $1  -c udp.c -D_REENTRANT $DEBUG_PARAM  && \
@@ -66,7 +69,7 @@ function build_lib {
 	cd ../ && \
 	echo "library: making archive..." && \
 	rm -f libpac.a
-	ar -crv libpac.a app.o crc.o dbl.o timef.o udp.o util.o tsv.o configl.o ../sqlite3.o acp/main.o && echo "library: done"
+	ar -crv libpac.a app.o crc.o dbl.o dbp.o timef.o udp.o util.o tsv.o configl.o ../sqlite3.o acp/main.o && echo "library: done"
 }
 
 #    1         2
@@ -75,7 +78,7 @@ function build {
 	cd lib && \
 	build_lib $1 && \
 	cd ../ 
-	gcc -D_REENTRANT -DSQLITE_THREADSAFE=2 -DSQLITE_OMIT_LOAD_EXTENSION $1 $3  main.c -o $2 $DEBUG_PARAM -lpthread -L./lib -lpac && echo "Application successfully compiled. Launch command: sudo ./"$2
+	gcc -D_REENTRANT -DSQLITE_THREADSAFE=2 -DSQLITE_OMIT_LOAD_EXTENSION $1 $3  main.c -o $2 $DEBUG_PARAM -I$PSQL_INCLUDE_DIR -L$PSQL_LIB_DIR -lpthread -lpq -L./lib -lpac && echo "Application successfully compiled. Launch command: sudo ./"$2
 }
 
 function full {

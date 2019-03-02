@@ -1,6 +1,7 @@
 #include "main.h"
 
 void freeChannel ( Channel * item ) {
+    FREE_LIST ( item->hive_list );
     freeSocketFd ( &item->sock_fd );
     freeMutex ( &item->mutex );
     free ( item );
@@ -43,8 +44,20 @@ char * getStateStr ( int state ) {
         return "INIT";
     case RUN:
         return "RUN";
+    case BUSY:
+        return "BUSY";
+    case IDLE:
+        return "IDLE";
+    case WAIT:
+        return "WAIT";
+    case ABSENT:
+        return "ABSENT";
+    case PRESENT:
+        return "PRESENT";
     case DISABLE:
         return "DISABLE";
+    case WAIT_PRESENT:
+        return "WAIT_PRESENT";
     case UNDEFINED:
         return "UNDEFINED";
     case FAILURE:
@@ -53,7 +66,140 @@ char * getStateStr ( int state ) {
     return "\0";
 }
 
+int pp_clearFTS ( int id, PGconn *db_conn ) {
+    char q[LINE_SIZE];
+    snprintf ( q, sizeof q, "delete from log.v_real where id = %d", id );
+    if ( !dbp_cmd ( db_conn, q ) ) {
+#ifdef MODE_DEBUG
+        fprintf ( stderr, "%s(): log function failed\n", F );
+#endif
+        return 0;
+    }
+    return 1;
+}
 
+int pp_saveFTS ( FTS *item, int rack_id, int hive_id, int kind, int max_rows, PGconn *db_conn ) {
+    if ( max_rows <= 0 ) {
+        return 0;
+    }
+    if ( item->state != 1 ) {
+        return 0;
+    }
+    char q[LINE_SIZE];
+    int id = rack_id * 100 + hive_id*10 + kind;
+    snprintf ( q, sizeof q, "select log.do_real(%d,%f,%u,%ld)", id, item->value, max_rows, item->tm.tv_sec );
+    PGresult *r;
+    if ( !dbp_exec ( &r, db_conn, q ) ) {
+        putsde ( "log function failed\n" );
+        return 0;
+    }
+    PQclear ( r );
+    return 1;
+}
+
+int pp_saveTime ( struct timespec item, int rack_id, int hive_id, int max_rows, PGconn *db_conn ) {
+    if ( prog->max_rows <= 0 ) {
+        return 0;
+    }
+    if ( item->state != 1 ) {
+        return 0;
+    }
+    char q[LINE_SIZE];
+    int id = rack_id * 10 + hive_id;
+    snprintf ( q, sizeof q, "select log.do_time(%d,%ld,%u)", id, item.tv_sec, max_rows );
+    PGresult *r;
+    if ( !dbp_exec ( &r, db_conn, q ) ) {
+        putsde ( "log function failed\n" );
+        return 0;
+    }
+    PQclear ( r );
+    return 1;
+}
+int readNsave ( int rack_id, int hive_id, int kind,  int max_rows, Sensor *sensor, PGconn *db_conn ) {
+    switch ( sensorRead ( sensor ) ) {
+    case ACP_RETURN_SUCCESS:
+        pp_saveFTS ( &sensor->input, rack_id, hive_id, max_rows, db_conn )
+        return 1;
+    case ACP_RETURN_FAILURE:
+        return 1;
+    }
+}
+void saveTempHum ( THLogger *item, int rack_id, int hive_id,  PGconn *db_conn ) {
+    switch ( item->state ) {
+    case WAIT:
+        if ( ton ( &item->tmr ) ) {
+            item->done_hum = item->done_temp = 0;
+            item->state = BUSY;
+        }
+        break;
+    case BUSY:
+        if ( !item->done_temp ) {
+            switch ( sensorRead ( &item->sensor_temp ) ) {
+            case ACP_RETURN_SUCCESS:
+                pp_saveFTS ( &item->sensor_temp.input, rack_id, hive_id, TEMPERATURE, item->max_rows, db_conn );
+                item->done_temp = 1;
+                break;
+            case ACP_RETURN_FAILURE:
+                item->done_temp = 1;
+                break;
+            }
+        }
+        if ( !item->done_hum ) {
+            switch ( sensorRead ( &item->sensor_hum ) ) {
+            case ACP_RETURN_SUCCESS:
+                pp_saveFTS ( &item->sensor_hum.input, rack_id, hive_id, HUMIDITY, item->max_rows, db_conn );
+                item->done_hum = 1;
+                break;
+            case ACP_RETURN_FAILURE:
+                item->done_hum = 1;
+                break;
+            }
+        }
+        if ( item->done_temp && item->done_hum ) {
+            item->state = WAIT;
+        }
+        break;
+    case INIT:
+        tonSetInterval ( item->interval, &item->tmr );
+        tonReset ( &item->tmr );
+        item->state = WAIT;
+        break;
+    case OFF:
+        break;
+    default:
+        break;
+    }
+
+}
+void  saveFly ( FlyLogger *item, int rack_id, int hive_id,  PGconn *db_conn ) {
+    switch ( item->state ) {
+    case WAIT:
+        if ( ton ( &item->tmr ) ) {
+            item->state = BUSY;
+        }
+        break;
+    case BUSY:
+        switch ( sensorRead ( &item->sensor ) ) {
+        case ACP_RETURN_SUCCESS:
+            pp_saveFTS ( &item->sensor.input, rack_id, hive_id, FLY, item->max_rows, db_conn );
+            item->state = WAIT;
+            break;
+        case ACP_RETURN_FAILURE:
+            item->state = WAIT;
+            break;
+        }
+        break;
+    case INIT:
+        tonSetInterval ( item->interval, &item->tmr );
+        tonReset ( &item->tmr );
+        item->state = WAIT;
+        break;
+    case OFF:
+        break;
+    default:
+        break;
+    }
+}
 void progEnable ( Prog *item ) {
     item->state=INIT;
 }
@@ -74,58 +220,162 @@ int channelReset ( Slave *item ) {
     Peer *peer=&item->remote_channel.peer;
     int remote_channel_id=item->remote_channel.channel_id;
     I1List data = {.item = &remote_channel_id, .length = 1, .max_length=1};
-	if ( !acp_requestSendUnrequitedI1List ( ACP_CMD_CHANNEL_RESET, &data, peer ) ) {
-		return 0;
-	}
+    if ( !acp_requestSendUnrequitedI1List ( ACP_CMD_CHANNEL_RESET, &data, peer ) ) {
+        return 0;
+    }
     return 1;
 }
 
-void resetFlyte(Prog *item, Slave *slave){
-	time_t now;
-   time ( &now );
-   struct tm * nowi;
-   nowi = localtime ( &now );
-   struct tm * last;
-   last = localtime ( &item->last_time );
-   if(last->tm_mday != nowi->tm_mday){
-		for(int i=0;i<slave->retry_num;i++){
-			channelReset ( slave );
-		}
-		item->last_time = now;
-	}
+void resetFlyte ( Prog *item, Slave *slave ) {
+    time_t now;
+    time ( &now );
+    struct tm * nowi;
+    nowi = localtime ( &now );
+    struct tm * last;
+    last = localtime ( &item->last_time );
+    if ( last->tm_mday != nowi->tm_mday ) {
+        for ( int i=0; i<slave->retry_num; i++ ) {
+            channelReset ( slave );
+        }
+        item->last_time = now;
+    }
 }
-void progControl ( Prog *item, Sensor *sensor_temp, Sensor *sensor_hum,Sensor *sensor_fly, Slave *reg,Slave *flyte) {
+
+void updateInstalledTime ( Presence *item, Slave *sound,  int rack_id, int hive_id, int max_rows, PGconn *db_conn ) {
+    item->installed_time = getCurrentTime();
+    pp_saveTime ( item->installed_time, rack_id, hive_id, max_rows, db_conn );
+    beep_updated ( sound );
+}
+void flyteControl (Rack *rack, Slave *slave ) {
+
+}
+int presenceControl ( Presence *item, Slave *sound, int rack_id, int hive_id, PGconn *db_conn ) {
     switch ( item->state ) {
-    case INIT:
-        tonSetInterval ( item->interval_read, &item->tmrr );
-        tonReset ( &item->tmrr );
-        tonSetInterval ( item->interval_set, &item->tmrs );
-        tonReset ( &item->tmrs );
-        item->state = RUN;
-        break;
-    case RUN:
-        if ( ton ( &item->tmrr ) ) {
-		   sensorRead ( sensor_temp ); 
-		   sensorRead ( sensor_hum );  
-		   sensorRead ( sensor_fly ); 
-		   resetFlyte(item, flyte);
-	   }  
-	   if ( ton ( &item->tmrs ) ) {
-		   acp_setRChannelFloat(&flyte->remote_channel, item->duty_cycle);
-		   slaveSetGoal ( reg, item->goal ) ;
+    case PRESENT:
+        switch ( sensorRead ( &item->sensor ) ) {
+        case ACP_RETURN_SUCCESS:
+            if ( item->sensor.input.value <= 0.0 ) {//absent
+                tonReset ( &item->tmr_update );
+                tonReset ( &item->tmr_disable );
+                item->state = WAIT_PRESENT;
+            }
+            break;
+        case ACP_RETURN_FAILURE:
+            break;
         }
         break;
-    case DISABLE:
+    case ABSENT:
+        switch ( sensorRead ( &item->sensor ) ) {
+        case ACP_RETURN_SUCCESS:
+            if ( item->sensor.input.value >= 1.0 ) {//present
+                item->state = PRESENT;
+            }
+            break;
+        case ACP_RETURN_FAILURE:
+            break;
+        }
+        break;
+    case WAIT_PRESENT: {
+        int update = 1;
+        if ( tonsp ( &item->tmr_update ) ) {
+            update = 0;
+            beep_no_update ( sound );
+        }
+        if ( tonsp ( &item->tmr_disable ) ) {
+            beep_disabled ( sound );
+            item->state = ABSENT;
+            break;
+        }
+        switch ( sensorRead ( &item->sensor ) ) {
+        case ACP_RETURN_SUCCESS:
+            if ( item->sensor.input.value >= 1.0 ) {//present
+                if ( update ) {
+                    updateInstalledTime ( item, sound,  rack_id, hive_id, item->max_rows,db_conn );
+                }
+                item->state = PRESENT;
+            }
+            break;
+        case ACP_RETURN_FAILURE:
+            break;
+        }
+    }
+    break;
+    case INIT:
+        tonSetInterval ( item->interval_update, &item->tmr_update );
+        tonSetInterval ( item->delay_disable, &item->tmr_disable );
+        switch ( sensorRead ( &item->sensor ) ) {
+        case ACP_RETURN_SUCCESS:
+            if ( item->sensor.input.value <= 0.0 ) {//absent
+                item->state = ABSENT;
+            } else {
+                item->state = PRESENT;
+            }
+            break;
+        case ACP_RETURN_FAILURE:
+            break;
+        }
         item->state = OFF;
         break;
     case OFF:
         break;
-    case FAILURE:
-        break;
     default:
-        item->state = FAILURE;
         break;
     }
+    return item->state;
+}
+void hiveControl ( Hive *item, int rack_id, Slave *sound, PGconn *db_conn ) {
+    switch ( item->state ) {
+    case INIT:
+        item->presence.state = item->fly_logger.state = item->th_logger.state = INIT;
+        item->state=BUSY;
+        break;
+    case BUSY:
+        saveTempHum ( &item->th_logger,rack_id, item->id, db_conn );
+        saveFly ( &item->fly_logger, rack_id, item->id, db_conn );
+        int pstate = presenceControl ( &item->presence, sound, rack_id, item->id, db_conn );
+        if ( pstate == ABSENT ) {
+            item->state = IDLE;
+        }
+        break;
+    case IDLE: {
+        int pstate = presenceControl ( &item->presence, sound, rack_id, item->id, db_conn );
+        if ( pstate == PRESENT ) {
+            item->fly_logger.state = item->th_logger.state = INIT;
+            item->state = BUSY;
+        }
+        break;
+    }
+    case OFF:
+        break;
+    default:
+        break;
+    }
+}
+void rackControl ( Rack *item, PGconn *db_conn ) {
+    switch ( item->state ) {
+    case RUN:
+        FORLISTN ( item->hive_list, i ) {
+            hiveControl ( &item->hive_list.item[i], item->id, &item->slave_sound, db_conn );
+        }
+        doorControl ( &item->sensor_door, &item->slave_flyte );
+        regControl ( &item->slave_reg );
+        flyteControl(&item->slave_flyte);
+        break;
+    case INIT:
+        FORLISTN ( item->hive_list, i ) {
+            item->hive_list.item[i].state = INIT;
+        }
+        item->state = RUN;
+        break;
+    case OFF:
+        break;
+    default:
+        break;
+    }
+
+}
+void progControl ( Prog *item, Sensor *sensor_temp, Sensor *sensor_hum,Sensor *sensor_fly,Sensor *sensor_prs, Slave *reg, Slave *flyte, Slave *sound, Sensor *door ) {
+
 }
 
 int bufCatProgInfo ( Channel *item, ACPResponse *response ) {
@@ -133,7 +383,7 @@ int bufCatProgInfo ( Channel *item, ACPResponse *response ) {
         char q[LINE_SIZE];
         char *state = getStateStr ( item->prog.state );
         int closed=0;
-        if(item->prog.duty_cycle == item->prog.close_duty_cycle) closed = 1;
+        if ( item->prog.duty_cycle == item->prog.close_duty_cycle ) closed = 1;
         snprintf ( q, sizeof q, "%d" CDS "%s" CDS FFO CDS FFO CDS FFO CDS "%d" CDS FFO CDS FFO CDS "%d" CDS "%d" CDS "%d" CDS "%d" CDS "%d" CDS "%d" RDS,
                    item->id,
                    state,

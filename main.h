@@ -3,6 +3,7 @@
 #define BB_H
 
 #include "lib/dbl.h"
+#include "lib/dbp.h"
 #include "lib/configl.h"
 #include "lib/util.h"
 #include "lib/crc.h"
@@ -32,6 +33,10 @@
 #define WAIT_RESP_TIMEOUT 1
 #define RETRY_COUNT 3
 
+#define beep_no_update(slave) beep(slave, 200, 5000)
+#define beep_updated(slave) beep(slave, 500, 5000)
+#define beep_disabled(slave) beep(slave, 100, 5000);beep(slave, 100, 5000)
+
 #define STATUS_SUCCESS "SUCCESS"
 #define STATUS_FAILURE "FAILURE"
 #define sensorRead(item) acp_getFTS ( &(item)->input, &(item)->remote_channel.peer, (item)->remote_channel.channel_id )
@@ -41,10 +46,22 @@ enum ProgState {
     OFF,
     INIT,
     RUN,
+    WAIT_PRESENT,
+    PRESENT,
+    ABSENT,
+    BUSY,
+    IDLE,
+    WAIT,
     UNDEFINED,
     DISABLE,
     FAILURE
 } ;
+
+enum Kind {
+    TEMPERATURE,
+    HUMIDITY,
+    FLY
+};
 
 typedef struct {
     RChannel remote_channel;
@@ -57,31 +74,92 @@ typedef struct {
 } Slave;
 
 typedef struct {
-    int id;
-    struct timespec interval_read;
-    struct timespec interval_set;
+    Sensor sensor;
     int state;
-    Ton tmrr;
-    Ton tmrs;
-    
-    double goal;
-    double delta;
+    Ton tmr_update;
+    Ton tmr_disable;
+    struct timespec delay_disable;
+    struct timespec interval_update;
+    struct timespec installed_time;
+    int max_rows;
+} Presence;
+
+typedef struct {
+    Sensor sensor_temp;
+    Sensor sensor_hum;
+    int max_rows;
+    struct timespec interval;
+    int done_temp;
+    int done_hum;
+    Ton tmr;
+    int state;
+} THLogger;
+
+typedef struct {
+    Sensor sensor;
+    double saved_fly;
+    struct timespec interval;
+    int max_rows;
+    Ton tmr;
+    int state;
+} FlyLogger;
+
+typedef struct {
+    int id;
+    THLogger th_logger;
+    FlyLogger fly_logger;
+    Presence presence;
+
+    int state;
+} Hive;
+DEC_LLIST ( Hive )
+
+typedef struct {
+    double duty_cycle;
+    Slave slave;
     double open_duty_cycle;
     double close_duty_cycle;
-    
-    double duty_cycle;
-    time_t last_time;
+    struct timespec interval;
+    Ton tmr;
+    int state;
+} FlyteCtl;
 
-} Prog;
+typedef struct {
+    double goal;
+    Slave slave;
+    struct timespec interval;
+    Ton tmr;
+    int state;
+} RegCtl;
+
+typedef struct {
+    double goal;
+    Sensor sensor;
+    int state;
+} DoorCtl;
+
+typedef struct {
+    int id;
+    FlyteCtl flyte;
+    RegCtl reg;
+    DoorCtl door;
+    double goal;
+
+    HiveList hive_list;
+    Slave slave_reg;
+    Slave slave_sound;
+    Sensor sensor_door;
+
+
+    int state;
+} Rack;
 
 struct channel_st {
     int id;
-    Prog prog;
-    Sensor sensor_temp;
-    Sensor sensor_hum;
-    Sensor sensor_fly;
-    Slave reg;
-    Slave flyte;
+    Rack rack;
+
+
+
     int sock_fd;
     int save;
     struct timespec cycle_duration;

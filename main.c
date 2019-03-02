@@ -4,13 +4,14 @@ int app_state = APP_INIT;
 
 TSVresult config_tsv = TSVRESULT_INITIALIZER;
 char *db_prog_path;
+char *db_log_path;
 char *peer_id;
+__time_t socket_timeout=0;
 
 int sock_port = -1;
 int sock_fd = -1;
 
 Peer peer_client = {.fd = &sock_fd, .addr_size = sizeof peer_client.addr};
-struct timespec cycle_duration = {0, 0};
 Mutex channel_list_mutex = MUTEX_INITIALIZER;
 Mutex db_mutex = MUTEX_INITIALIZER;
 
@@ -19,23 +20,35 @@ ChannelLList channel_list = LLIST_INITIALIZER;
 #include "util.c"
 #include "db.c"
 
-int readSettings ( TSVresult* r, const char *data_path, char **peer_id, char **db_prog_path ) {
+int readSettings ( TSVresult* r, const char *data_path, char **peer_id, char **db_prog_path, char **db_log_path, __time_t * socket_timeout) {
     if ( !TSVinit ( r, data_path ) ) {
         return 0;
     }
     char *_peer_id = TSVgetvalues ( r, 0, "peer_id" );
     char *_db_prog_path = TSVgetvalues ( r, 0, "db_prog_path" );
+    char *_db_log_path = TSVgetvalues ( r, 0, "db_log_path" );
+    int _socket_timeout = TSVgetis ( r, 0, "socket_timeout" );
     if ( TSVnullreturned ( r ) ) {
         return 0;
     }
     *peer_id = _peer_id;
     *db_prog_path = _db_prog_path;
+    *db_log_path = _db_log_path;
+    *socket_timeout = _socket_timeout;
     return 1;
 }
 
 int initApp() {
-    if ( !readSettings ( &config_tsv, CONFIG_FILE, &peer_id,&db_prog_path ) ) {
+    if ( !readSettings ( &config_tsv, CONFIG_FILE, &peer_id, &db_prog_path, &db_log_path, &socket_timeout) ) {
         putsde ( "failed to read settings\n" );
+        return 0;
+    }
+    if ( !PQisthreadsafe() ) {
+        putsde ( "libpq is not thread-safe\n" );
+        return 0;
+    }
+    if ( !dbp_wait ( db_log_path ) ) {
+        putsde ( "failed to ping database\n" );
         return 0;
     }
     if ( !initMutex ( &channel_list_mutex ) ) {
