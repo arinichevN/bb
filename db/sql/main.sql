@@ -1,7 +1,12 @@
 CREATE TABLE "rack" (
     "id" INTEGER PRIMARY KEY,
     "port" INTEGER NOT NULL,
-    "ip_addr" TEXT NOT NULL
+    "ip_addr" TEXT NOT NULL,
+    "ds18b20_id" INTEGER NOT NULL,
+    "flyte_pwm_id" INTEGER NOT NULL,
+    "buzzer_id" INTEGER NOT NULL,
+    "" INTEGER NOT NULL,
+    "" INTEGER NOT NULL,
 );
 CREATE TABLE "remote_channel"
 (
@@ -17,6 +22,14 @@ CREATE TABLE "thread"
     "cycle_duration_nsec" INTEGER NOT NULL
 );
 
+CREATE TABLE "buzzer"
+(
+    "id" INTEGER PRIMARY KEY,
+    "pin" INTEGER NOT NULL,
+    "delay_sec" INTEGER NOT NULL,
+    "delay_nsec" INTEGER NOT NULL
+);
+)
 CREATE TABLE "ds18b20"
 (
     "id" INTEGER PRIMARY KEY,
@@ -30,6 +43,13 @@ CREATE TABLE "ds18b20"
     "pin" INTEGER NOT NULL,
     "address" TEXT NOT NULL,
     "resolution" INTEGER NOT NULL
+);
+
+CREATE TABLE "pwm_device"
+(
+    "id" INTEGER PRIMARY KEY,
+    "pin" INTEGER NOT NULL,
+    "pwm_id" INTEGER NOT NULL
 );
 
 CREATE TABLE "pwm"

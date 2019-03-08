@@ -79,10 +79,11 @@ typedef struct {
 DEC_LIST(Sound)
 
 typedef struct {
+  int id;
     int pin;
     SoundList sound_list;
     FIFOItemList_int queue;
-    int delay_usec;
+    struct timespec delay;
 } Buzzer;
 
 typedef struct {
@@ -185,7 +186,6 @@ typedef struct {
     Door door;
     Buzzer buzzer;
 } Rack;
-
 
 
 struct channel_st {
