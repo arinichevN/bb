@@ -5,18 +5,11 @@ INSERT OR REPLACE INTO "peer" VALUES
 ('gwu74_1',49173,'127.0.0.1'),
 ('bb_1',49184,'127.0.0.1');
 
-INSERT OR REPLACE INTO "remote_channel" (id,peer_id,channel_id) VALUES
-(1,'gwu22_1',1),
-(2,'gwu22_1',3),
-(3,'gwu22_1',5),
-(4,'gwu22_1',2),
-(5,'gwu22_1',4),
-(6,'gwu22_1',6),
-(7,'gwucn_1',1),
-(8,'gwucn_1',2),
-(9,'gwucn_1',3),
-(10,'regonf_1',1),
-(11,'gwu74_1',1);
+INSERT OR REPLACE INTO "thread" VALUES
+('slow',1,0),
+('cooler',0,500),
+('flyte',0,500),
+('fly',0,1000000);
 
 INSERT OR REPLACE INTO "prog" (id,goal,delta,duty_cycle,open_duty_cycle,close_duty_cycle,interval_read_sec,interval_set_sec) VALUES
 (1, 30, 0.5, 0, 1000, 0, 3, 1),

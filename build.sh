@@ -61,6 +61,10 @@ function build_lib {
 	gcc $1  -c udp.c -D_REENTRANT $DEBUG_PARAM  && \
 	gcc $1  -c util.c -D_REENTRANT $DEBUG_PARAM  && \
 	gcc $1  -c tsv.c -D_REENTRANT $DEBUG_PARAM  && \
+    gcc $1  -c pwm.c -D_REENTRANT $DEBUG_PARAM  && \
+    gcc $1  -c gpio.c -DGPIO_MUTEX -D_REENTRANT $DEBUG_PARAM  && \
+    gcc $1  -c 1w.c -DDELAY_IDLE_NOT_BUSY -D_REENTRANT $DEBUG_PARAM  && \
+    gcc $1  -c ds18b20.c -DDELAY_IDLE_NOT_BUSY -D_REENTRANT $DEBUG_PARAM  && \
 	if [ ! -f ../sqlite3.o ]; then
     gcc $1 -DSQLITE_THREADSAFE=2 -DSQLITE_OMIT_LOAD_EXTENSION  -c ../sqlite3.c -D_REENTRANT $DEBUG_PARAM 
     fi
@@ -69,7 +73,7 @@ function build_lib {
 	cd ../ && \
 	echo "library: making archive..." && \
 	rm -f libpac.a
-	ar -crv libpac.a app.o crc.o dbl.o dbp.o timef.o udp.o util.o tsv.o configl.o ../sqlite3.o acp/main.o && echo "library: done"
+	ar -crv libpac.a app.o crc.o dbl.o dbp.o timef.o udp.o util.o tsv.o pwm.o gpio.o 1w.c ds18b20.c configl.o ../sqlite3.o acp/main.o && echo "library: done"
 }
 
 #    1         2

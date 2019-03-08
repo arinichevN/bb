@@ -180,6 +180,8 @@ enum {
 } State;
 
 
+
+
 typedef struct {
     char *buf;
     size_t *s1_offset;
@@ -195,13 +197,18 @@ typedef struct {
 
 extern int s1blist_push(size_t min_buf_alloc_length, size_t min_item_alloc_length, S1BList *list, const char *str);
 
+enum {
+    APP_MUTEX_INIT,
+    APP_MUTEX_CREATED,
+    APP_MUTEX_INITIALIZED
+} AppMutexState;
+
 typedef struct {
     pthread_mutex_t self;
     pthread_mutexattr_t attr;
-    int created;
-    int attr_initialized;
+    int state;
 } Mutex;
-#define MUTEX_INITIALIZER {.self=PTHREAD_MUTEX_INITIALIZER, .created = 0, .attr_initialized = 0}
+#define MUTEX_INITIALIZER {.self=PTHREAD_MUTEX_INITIALIZER, .state = APP_MUTEX_INIT}
 //#define MUTEX pthread_mutex_t
 //#define DEF_MUTEX(V) pthread_mutex_t V = PTHREAD_MUTEX_INITIALIZER;
 //#define IF_LOCK_MUTEX(P) if(pthread_mutex_lock(P) != 0)

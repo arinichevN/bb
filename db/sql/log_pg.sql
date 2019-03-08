@@ -77,8 +77,7 @@ CREATE TABLE bb.fly
   rack_id integer NOT NULL,
   hive_id integer NOT NULL,
   value integer NOT NULL,
-  period interval NOT NULL,
-  mark bigint NOT NULL,
+  mark timestamp without time zone NOT NULL,
   CONSTRAINT fly_pkey PRIMARY KEY (rack_id, hive_id, mark)
 )
 WITH (
@@ -121,34 +120,94 @@ WITH (
   OIDS=FALSE
 );
 
-
-DROP FUNCTION bb.save_fly(integer, integer, integer, integer, integer);
-
-CREATE OR REPLACE FUNCTION bb.save_fly(
+DROP FUNCTION bb.save_installed(integer, integer, integer);
+CREATE OR REPLACE FUNCTION bb.save_installed(
     in_rack_id integer,
     in_hive_id integer,
-    val integer,
-    max_rows integer,
-    in_period integer
+    max_rows integer
     )
   RETURNS integer AS
 $BODY$declare
  n bigint;
- in_mark bigint;
 begin
-  select extract(epoch from localtimestamp)::bigint into in_mark;
-  select count(*) from bb.fly where rack_id=in_rack_id and hive_id=in_hive_id into n;
+  select count(*) from bb.installed where rack_id=in_rack_id and hive_id=in_hive_id into n;
   if not FOUND then
     raise exception 'count failed where rack_id=% and hive_id=% ', in_rack_id, in_hive_id;
   end if;
   if n < max_rows then
-    insert into bb.fly(rack_id, hive_id, value, period, mark) values (in_rack_id, in_hive_id, val, cast(to_char(in_period, '00000000000 "S"') as interval), in_mark);
+    insert into bb.installed(rack_id, hive_id, mark) values (in_rack_id, in_hive_id, localtimestamp);
     if not FOUND then
       raise exception 'insert failed where rack_id=% and hive_id=% ', in_rack_id, in_hive_id;
     end if;
     return 1;
   else
-   update bb.fly set period=cast(to_char(in_period, '00000000000 "S"') as interval), mark=in_mark, value=val where rack_id=in_rack_id and hive_id=in_hive_id and mark=(select min(mark) from bb.fly where rack_id=in_rack_id and hive_id=in_hive_id);
+   update bb.installed set mark=localtimestamp where rack_id=in_rack_id and hive_id=in_hive_id and mark=(select min(mark) from bb.installed where rack_id=in_rack_id and hive_id=in_hive_id);
+   if not FOUND then
+     raise exception 'update failed where rack_id=% and hive_id=% ', in_rack_id, in_hive_id;
+   end if;
+   return 2;
+  end if;
+ return 0;
+end;$BODY$
+  LANGUAGE plpgsql VOLATILE
+  COST 100;
+
+DROP FUNCTION bb.save_fly(integer, integer, integer, integer);
+CREATE OR REPLACE FUNCTION bb.save_fly(
+    in_rack_id integer,
+    in_hive_id integer,
+    val integer,
+    max_rows integer
+    )
+  RETURNS integer AS
+$BODY$declare
+ n bigint;
+begin
+  select count(*) from bb.fly where rack_id=in_rack_id and hive_id=in_hive_id into n;
+  if not FOUND then
+    raise exception 'count failed where rack_id=% and hive_id=% ', in_rack_id, in_hive_id;
+  end if;
+  if n < max_rows then
+    insert into bb.fly(rack_id, hive_id, value, mark) values (in_rack_id, in_hive_id, val, localtimestamp);
+    if not FOUND then
+      raise exception 'insert failed where rack_id=% and hive_id=% ', in_rack_id, in_hive_id;
+    end if;
+    return 1;
+  else
+   update bb.fly set mark=localtimestamp, value=val where rack_id=in_rack_id and hive_id=in_hive_id and mark=(select min(mark) from bb.fly where rack_id=in_rack_id and hive_id=in_hive_id);
+   if not FOUND then
+     raise exception 'update failed where rack_id=% and hive_id=% ', in_rack_id, in_hive_id;
+   end if;
+   return 2;
+  end if;
+ return 0;
+end;$BODY$
+  LANGUAGE plpgsql VOLATILE
+  COST 100;
+  
+DROP FUNCTION bb.save_temp(integer, integer, real, integer);
+CREATE OR REPLACE FUNCTION bb.save_temp(
+    in_rack_id integer,
+    in_hive_id integer,
+    val real,
+    max_rows integer
+    )
+  RETURNS integer AS
+$BODY$declare
+ n bigint;
+begin
+  select count(*) from bb.temp where rack_id=in_rack_id and hive_id=in_hive_id into n;
+  if not FOUND then
+    raise exception 'count failed where rack_id=% and hive_id=% ', in_rack_id, in_hive_id;
+  end if;
+  if n < max_rows then
+    insert into bb.temp(rack_id, hive_id, value, mark) values (in_rack_id, in_hive_id, val, localtimestamp);
+    if not FOUND then
+      raise exception 'insert failed where rack_id=% and hive_id=% ', in_rack_id, in_hive_id;
+    end if;
+    return 1;
+  else
+   update bb.temp set mark=localtimestamp, value=val where rack_id=in_rack_id and hive_id=in_hive_id and mark=(select min(mark) from bb.temp where rack_id=in_rack_id and hive_id=in_hive_id);
    if not FOUND then
      raise exception 'update failed where rack_id=% and hive_id=% ', in_rack_id, in_hive_id;
    end if;

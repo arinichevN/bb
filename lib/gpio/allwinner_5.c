@@ -39,6 +39,7 @@ unsigned int pio_base=0;
 size_t mmap_length=0;
 void *gpio_buf=NULL;
 
+
 static int gpio_pin[PIN_NUM];
 
 void pinWrite(int pin, int value) {

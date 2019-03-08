@@ -41,6 +41,14 @@ void delayUsIdle ( unsigned int td ) {
     usec2timespec ( td, &requested )
     nanosleep ( &requested, NULL );
 }
+
+void delayTsIdle ( struct timespec interval ) {
+    struct timespec end, start;
+    clock_gettime ( CLOCK_MONOTONIC, &start );
+    timespecadd ( &start, &interval, &end );
+    clock_nanosleep ( CLOCK_MONOTONIC, TIMER_ABSTIME,&end, NULL );
+}
+
 void delayTsBusyRest ( struct timespec interval, struct timespec start ) {
     struct timespec now, end;
     timespecadd ( &start, &interval, &end );
@@ -139,6 +147,22 @@ int ton ( Ton *item ) {
     return 0;
 }
 
+int tonsp ( Ton *item ) {
+    if(item->done) return 1;
+    struct timespec now;
+    clock_gettime ( LIB_CLOCK, &now );
+    if ( !item->ready ) {
+        item->start=now;
+        timespecadd ( &item->start, &item->interval, &item->end );
+        item->ready = 1;
+    }
+    if ( timespeccmp ( &now, &item->end, > ) ) {
+        item->done = 1;
+        return 1;
+    }
+    return 0;
+}
+
 int toni (struct timespec interval, Ton *item ) {
     struct timespec now;
     clock_gettime ( LIB_CLOCK, &now );
@@ -161,6 +185,7 @@ void tonSetInterval ( struct timespec interval, Ton *item ) {
 
 void tonReset ( Ton *item ) {
     item->ready=0;
+    item->done=0;
 }
 
 struct timespec tonTimePassed ( const Ton *item ) {

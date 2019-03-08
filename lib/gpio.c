@@ -1,41 +1,47 @@
 
 #include "gpio.h"
 
+#ifdef GPIO_MUTEX
+#define GPIO_DIR "gpio/mutex/"
+#else
+#define GPIO_DIR "gpio/"
+#endif
+
 #ifdef CPU_ALLWINNER_A20
-//#include "gpio/allwinner_4.c"
-#include "gpio/allwinner_5.c"
+//#include "allwinner_4.c"
+#include GPIO_DIR "allwinner_5.c"
 #else
 #ifdef CPU_ALLWINNER_H3
-//#include "gpio/allwinner_2.c"
-#include "gpio/allwinner_5.c"
+//#include "allwinner_2.c"
+#include GPIO_DIR "allwinner_5.c"
 #else
 #ifdef CPU_ALLWINNER_H2P
-//#include "gpio/allwinner_2.c"
-#include "gpio/allwinner_5.c"
+//#include "allwinner_2.c"
+#include GPIO_DIR "allwinner_5.c"
 #else
 #ifdef CPU_ALLWINNER_H5
-#include "gpio/allwinner_2.c"
+#include GPIO_DIR "allwinner_2.c"
 #else
 #ifdef CPU_ALLWINNER_R40
-#include "gpio/allwinner_2.c"
+#include GPIO_DIR "allwinner_2.c"
 #else
 #ifdef CPU_ALLWINNER_A33
-#include "gpio/allwinner_2.c"
+#include GPIO_DIR "allwinner_2.c"
 #else
 #ifdef CPU_ALLWINNER_A31s
-#include "gpio/allwinner_2.c"
+#include GPIO_DIR "allwinner_2.c"
 #else
 #ifdef CPU_ALLWINNER_A64
-#include "gpio/allwinner_2.c"
+#include GPIO_DIR "allwinner_2.c"
 #else
 #ifdef CPU_ALLWINNER_A83T
-#include "gpio/allwinner_2.c"
+#include GPIO_DIR "allwinner_2.c"
 #else
 #ifdef CPU_ROCKCHIP_RK3288
-#include "gpio/rk3288.c"
+#include GPIO_DIR "rk3288.c"
 #else
 //debugging mode (for machine with no GPIO)
-#include "gpio/all.c"
+#include GPIO_DIR "all.c"
 #endif
 #endif
 #endif

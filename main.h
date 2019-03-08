@@ -11,11 +11,13 @@
 #include "lib/timef.h"
 #include "lib/udp.h"
 #include "lib/tsv.h"
+#include "lib/pid.h"
+#include "lib/pwm.h"
+#include "lib/device/ds18b20.h"
 #include "lib/acp/main.h"
 #include "lib/acp/app.h"
 #include "lib/acp/channel.h"
 #include "lib/acp/bb.h"
-#include "lib/acp/regulator.h"
 
 
 #define APP_NAME bb
@@ -33,9 +35,9 @@
 #define WAIT_RESP_TIMEOUT 1
 #define RETRY_COUNT 3
 
-#define beep_no_update(slave) beep(slave, 200, 5000)
-#define beep_updated(slave) beep(slave, 500, 5000)
-#define beep_disabled(slave) beep(slave, 100, 5000);beep(slave, 100, 5000)
+#define SOUND_NO_UPDATE 1
+#define SOUND_UPDATED 2
+#define SOUND_DISABLED 3
 
 #define STATUS_SUCCESS "SUCCESS"
 #define STATUS_FAILURE "FAILURE"
@@ -52,6 +54,8 @@ enum ProgState {
     BUSY,
     IDLE,
     WAIT,
+    OPENED,
+    CLOSED,
     UNDEFINED,
     DISABLE,
     FAILURE
@@ -63,18 +67,46 @@ enum Kind {
     FLY
 };
 
-typedef struct {
-    RChannel remote_channel;
-    FTS input;
-} Sensor;
+DEC_FIFO_LIST(int)
+DEC_FUN_FIFO_PUSH(int)
+DEC_FUN_FIFO_POP(int)
 
 typedef struct {
-    RChannel remote_channel;
-    int retry_num;
-} Slave;
+    int id;
+    int frequency;
+    int duration;
+} Sound;
+DEC_LIST(Sound)
 
 typedef struct {
-    Sensor sensor;
+    int pin;
+    SoundList sound_list;
+    FIFOItemList_int queue;
+    int delay_usec;
+} Buzzer;
+
+typedef struct {
+    PWM pwm;
+    int pin;
+    double duty_cycle;
+    int last_v;
+    Mutex mutex;
+} PWMDevice;
+
+typedef struct {
+    int pin;
+    uint8_t addr[DS18B20_SCRATCHPAD_BYTE_NUM];
+    int resolution;
+} DS18B20Device;
+
+typedef struct {
+    PID pid;
+    double goal;
+    Mutex mutex;
+} PIDRegulator;
+
+typedef struct {
+    int pin;
     int state;
     Ton tmr_update;
     Ton tmr_disable;
@@ -85,19 +117,14 @@ typedef struct {
 } Presence;
 
 typedef struct {
-    Sensor sensor_temp;
-    Sensor sensor_hum;
-    int max_rows;
+    struct timespec last_tm;
     struct timespec interval;
-    int done_temp;
-    int done_hum;
+    int max_rows;
     Ton tmr;
     int state;
-} THLogger;
+} TempLogger;
 
 typedef struct {
-    Sensor sensor;
-    double saved_fly;
     struct timespec interval;
     int max_rows;
     Ton tmr;
@@ -105,9 +132,45 @@ typedef struct {
 } FlyLogger;
 
 typedef struct {
+    int pin;
+    struct timespec delay;
+    int count;
+    Ton tmr;
+    int state;
+    Mutex mutex;
+} FlyCounter;
+
+typedef struct {
+    PWMDevice device;
+    double open_duty_cycle;
+    double close_duty_cycle;
+    struct timespec interval;
+    Ton tmr;
+    int state;
+} Flyte;
+
+typedef struct {
+    PWMDevice em;
+    DS18B20Device sensor;
+    PIDRegulator regulator;
+    
+    struct timespec interval;
+    Ton tmr;
+    int state;
+    Mutex mutex;
+} Cooler;
+
+typedef struct {
+    int pin;
+    int last_flyte_state;
+    int state;
+} Door;
+
+typedef struct {
     int id;
-    THLogger th_logger;
+    FlyCounter fly_counter;
     FlyLogger fly_logger;
+    TempLogger temp_logger;
     Presence presence;
 
     int state;
@@ -115,44 +178,15 @@ typedef struct {
 DEC_LLIST ( Hive )
 
 typedef struct {
-    double duty_cycle;
-    Slave slave;
-    double open_duty_cycle;
-    double close_duty_cycle;
-    struct timespec interval;
-    Ton tmr;
-    int state;
-} FlyteCtl;
-
-typedef struct {
-    double goal;
-    Slave slave;
-    struct timespec interval;
-    Ton tmr;
-    int state;
-} RegCtl;
-
-typedef struct {
-    double goal;
-    Sensor sensor;
-    int state;
-} DoorCtl;
-
-typedef struct {
     int id;
-    FlyteCtl flyte;
-    RegCtl reg;
-    DoorCtl door;
-    double goal;
-
     HiveList hive_list;
-    Slave slave_reg;
-    Slave slave_sound;
-    Sensor sensor_door;
-
-
-    int state;
+    Flyte flyte;
+    Cooler cooler;
+    Door door;
+    Buzzer buzzer;
 } Rack;
+
+
 
 struct channel_st {
     int id;
@@ -171,6 +205,14 @@ struct channel_st {
 typedef struct channel_st Channel;
 
 DEC_LLIST ( Channel )
+
+struct thread_st {
+    char *id;
+    pthread_t thread;
+    struct timespec cycle_duration;
+};
+typedef struct thread_st Thread;
+DEC_LIST(Thread)
 
 extern int readSettings();
 

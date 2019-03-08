@@ -21,6 +21,8 @@
 
 //interval < 1000 usec
 #define DELAY_US_BUSY(interval) delayTsBusy ( (struct timespec) {0,interval*1000} )
+#define DELAY_US_IDLE(interval) delayTsIdle ( (struct timespec) {0,interval*1000} )
+
 #define timespec2double(d, ts) d=(ts)->tv_sec + (double) (ts)->tv_nsec*NANO_FACTOR
 #define double2timespec(ts, d)  (ts)->tv_sec = d; (ts)->tv_nsec = ( d - (long int ) d ) / NANO_FACTOR;
 #define usec2timespec(us, ts)             \
@@ -73,6 +75,7 @@ typedef struct {
     struct timespec interval;
     struct timespec end;
     int ready;
+    int done;
 } Ton;
 
 extern struct timespec getCurrentTime();
@@ -102,6 +105,8 @@ extern void ton_ts_reset(Ton_ts *t);
 extern void ton_ts_touch(Ton_ts *t);
 
 extern int ton ( Ton *item ) ;
+
+extern int tonsp ( Ton *item ) ;
 
 extern int toni (struct timespec interval, Ton *item );
 
