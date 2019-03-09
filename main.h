@@ -45,161 +45,167 @@
 
 #define FFO ACP_FLOAT_FORMAT_OUT
 enum ProgState {
-    OFF,
-    INIT,
-    RUN,
-    WAIT_PRESENT,
-    PRESENT,
-    ABSENT,
-    BUSY,
-    IDLE,
-    WAIT,
-    OPENED,
-    CLOSED,
-    UNDEFINED,
-    DISABLE,
-    FAILURE
+   OFF,
+   INIT,
+   RUN,
+   WAIT_PRESENT,
+   PRESENT,
+   ABSENT,
+   BUSY,
+   IDLE,
+   WAIT,
+   OPENED,
+   CLOSED,
+   UNDEFINED,
+   DISABLE,
+   FAILURE
 } ;
 
 enum Kind {
-    TEMPERATURE,
-    HUMIDITY,
-    FLY
+   TEMPERATURE,
+   HUMIDITY,
+   FLY
 };
 
-DEC_FIFO_LIST(int)
-DEC_FUN_FIFO_PUSH(int)
-DEC_FUN_FIFO_POP(int)
+DEC_FIFO_LIST ( int )
+DEC_FUN_FIFO_PUSH ( int )
+DEC_FUN_FIFO_POP ( int )
 
 typedef struct {
-    int id;
-    int frequency;
-    int duration;
+   int id;
+   int frequency;
+   int duration;
 } Sound;
-DEC_LIST(Sound)
+DEC_LIST ( Sound )
 
 typedef struct {
-  int id;
-    int pin;
-    SoundList sound_list;
-    FIFOItemList_int queue;
-    struct timespec delay;
+   int id;
+   int pin;
+   SoundList sound_list;
+   FIFOItemList_int queue;
+   struct timespec delay;
+   pthread_t thread;
+   struct timespec cycle_duration;
 } Buzzer;
 
 typedef struct {
-    PWM pwm;
-    int pin;
-    double duty_cycle;
-    int last_v;
-    Mutex mutex;
+   PWM pwm;
+   int pin;
+   double duty_cycle;
+   int last_v;
+   Mutex mutex;
 } PWMDevice;
 
 typedef struct {
-    int pin;
-    uint8_t addr[DS18B20_SCRATCHPAD_BYTE_NUM];
-    int resolution;
+   int pin;
+   uint8_t addr[DS18B20_SCRATCHPAD_BYTE_NUM];
+   int resolution;
 } DS18B20Device;
 
 typedef struct {
-    PID pid;
-    double goal;
-    Mutex mutex;
+   PID pid;
+   double goal;
+   Mutex mutex;
 } PIDRegulator;
 
 typedef struct {
-    int pin;
-    int state;
-    Ton tmr_update;
-    Ton tmr_disable;
-    struct timespec delay_disable;
-    struct timespec interval_update;
-    struct timespec installed_time;
-    int max_rows;
+   int id;
+   int pin;
+   struct timespec delay_disable;
+   struct timespec interval_update;
+   int max_rows;
+   struct timespec installed_time;
+   int state;
+   Ton tmr_update;
+   Ton tmr_disable;
 } Presence;
 
 typedef struct {
-    struct timespec last_tm;
-    struct timespec interval;
-    int max_rows;
-    Ton tmr;
-    int state;
+   struct timespec last_tm;
+   struct timespec interval;
+   int max_rows;
+   Ton tmr;
+   int state;
 } TempLogger;
 
 typedef struct {
-    struct timespec interval;
-    int max_rows;
-    Ton tmr;
-    int state;
+   struct timespec interval;
+   int max_rows;
+   Ton tmr;
+   int state;
 } FlyLogger;
 
 typedef struct {
-    int pin;
-    struct timespec delay;
-    int count;
-    Ton tmr;
-    int state;
-    Mutex mutex;
+   int pin;
+   struct timespec delay;
+   int count;
+   Ton tmr;
+   int state;
+   Mutex mutex;
+   pthread_t thread;
+   struct timespec cycle_duration;
 } FlyCounter;
 
 typedef struct {
-    PWMDevice device;
-    double open_duty_cycle;
-    double close_duty_cycle;
-    struct timespec interval;
-    Ton tmr;
-    int state;
+   PWMDevice device;
+   double open_duty_cycle;
+   double close_duty_cycle;
+   pthread_t thread;
+   struct timespec cycle_duration;
 } Flyte;
 
 typedef struct {
-    PWMDevice em;
-    DS18B20Device sensor;
-    PIDRegulator regulator;
-    
-    struct timespec interval;
-    Ton tmr;
-    int state;
-    Mutex mutex;
+   PWMDevice em;
+   DS18B20Device sensor;
+   PIDRegulator regulator;
+
+   struct timespec interval;
+   Ton tmr;
+   int state;
+   Mutex mutex;
+   pthread_t thread;
+   struct timespec cycle_duration;
 } Cooler;
 
 typedef struct {
-    int pin;
-    int last_flyte_state;
-    int state;
+   int pin;
+   int last_flyte_state;
+   int state;
 } Door;
 
 typedef struct {
-    int id;
-    FlyCounter fly_counter;
-    FlyLogger fly_logger;
-    TempLogger temp_logger;
-    Presence presence;
+   int id;
+   FlyCounter fly_counter;
+   FlyLogger fly_logger;
+   TempLogger temp_logger;
+   Presence presence;
 
-    int state;
+   int state;
 } Hive;
 DEC_LLIST ( Hive )
 
 typedef struct {
-    int id;
-    HiveList hive_list;
-    Flyte flyte;
-    Cooler cooler;
-    Door door;
-    Buzzer buzzer;
+   int id;
+   HiveList hive_list;
+   Flyte flyte;
+   Cooler cooler;
+   Door door;
+   Buzzer buzzer;
 } Rack;
 
 
 struct channel_st {
-    int id;
-    Rack rack;
+   int id;
+   Rack rack;
 
 
 
-    int sock_fd;
-    int save;
-    struct timespec cycle_duration;
-    Mutex mutex;
-    pthread_t thread;
-    struct channel_st *next;
+   int sock_fd;
+   int save;
+   struct timespec cycle_duration;
+   Mutex mutex;
+   pthread_t thread;
+   struct channel_st *next;
 };
 
 typedef struct channel_st Channel;
@@ -207,12 +213,12 @@ typedef struct channel_st Channel;
 DEC_LLIST ( Channel )
 
 struct thread_st {
-    char *id;
-    pthread_t thread;
-    struct timespec cycle_duration;
+   char *id;
+   pthread_t thread;
+   struct timespec cycle_duration;
 };
 typedef struct thread_st Thread;
-DEC_LIST(Thread)
+DEC_LIST ( Thread )
 
 extern int readSettings();
 
