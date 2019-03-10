@@ -3,6 +3,7 @@
 
 int initRack(Rack *item, const char *db_path){
   
+  
 }
 int addChannel ( Channel *item, ChannelLList *list, Mutex *list_mutex ) {
     if ( list->length >= INT_MAX ) {

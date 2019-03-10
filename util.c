@@ -22,10 +22,28 @@ int initRack ( Rack *item, int id, int sound_queue_length, const char *db_path )
    if ( !initMutex ( &item->flyte.device ) ) {
       return 0;
    }
-   FIFO_INIT(&item->buzzer.queue, sound_queue_length)
-   if(item->buzzer.queue.length == sound_queue_length){
-     return 0;
+   FIFO_INIT ( &item->buzzer.queue, sound_queue_length )
+   if ( item->buzzer.queue.length == sound_queue_length ) {
+      return 0;
    }
+   pwm_init ( &item->flyte.device.pwm );
+   pwm_init ( &item->cooler.em.pwm );
+   item->cooler.regulator.pid.mode = PID_MODE_COOLER;
+   int res = ds18b20_parse_resolution ( item->cooler.sensor.resolution );
+   for ( int i = 0; i < 3; i++ ) {
+      if ( ds18b20_set_resolution ( item->cooler.sensor.pin, item->cooler.sensor.addr, res ) ) {
+         break;
+      }
+   }
+   pinModeOut ( item->buzzer.pin );
+   pinModeOut ( item->flyte.device.pin );
+   pinModeOut ( item->cooler.em.pin );
+   pinModeIn ( item->cooler.sensor.pin );
+   pinModeIn ( item->door.pin );
+   item->door.state = INIT;
+   item->cooler.state = INIT;
+   item->cooler.state = INIT;
+   return 1;
 }
 
 void freeRack ( Rack * item ) {
@@ -275,7 +293,7 @@ void soundControl ( Buzzer *item ) {
    if ( int_fifo_pop ( &sound_id, &item->queue ) ) {
       playSound ( sound_id, &item->sound_list, item->pin );
    }
-   DELAY_US_IDLE ( item->delay_usec );
+   delayTsIdle ( item->delay );
 }
 
 void doorControl ( Door *item, Flyte *flyte ) {
@@ -299,6 +317,11 @@ void doorControl ( Door *item, Flyte *flyte ) {
          break;
       case INIT:
          item->last_flyte_state == OFF;
+         if ( pinRead ( item->pin ) == LOW ) {
+            item->state = OPENED;
+         } else {
+            item->state = CLOSED;
+         }
          break;
    }
 }
