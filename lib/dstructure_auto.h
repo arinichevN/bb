@@ -40,7 +40,7 @@
 #define FREE_FIFO(fifo) free((fifo)->item); (fifo)->item=NULL; (fifo)->length=0; (fifo)->pop_item = NULL;(fifo)->push_item = NULL;
 #define DEC_FUN_FIFO_PUSH(T) extern int T ## _fifo_push(T item, FIFOItemList_ ## T *list);
 #define DEC_FUN_FIFO_POP(T) extern int T ## _fifo_pop(T * item, FIFOItemList_ ## T *list);
-
+#define FIFO_INIT(item, length) (list)->item = malloc(length * sizeof *((list)->item));if ((list)->item == NULL) {(list)->length = 0;}(list)->length = length;FORLi{if (i == Lil) {(list)->item[i].next = &(list)->item[0];} else {(list)->item[i].next = &(list)->item[i + 1];} if (i == 0) {(list)->item[i].prev = &(list)->item[Lil];} else {(list)->item[i].prev = &(list)->item[i - 1];} (list)->item[i].free = 1; } (list)->pop_item = NULL; (list)->push_item = &(list)->item[0]; if(!initMutex(&(list)->mutex)){FREE_FIFO(list)}
 
 #define FUN_PIPE_POP(T) T pipe_pop(T ## List *list) {return list->item[list->length-1];}
 #define FUN_PIPE_PUSH(T) void pipe_push(T ## List *list, T value) {for (int i = list->length - 1; i > 0; i--) {list->item[i] = list->item[i - 1];}list->item[0] = value;}

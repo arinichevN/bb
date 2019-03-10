@@ -1,4 +1,32 @@
 #include "main.h"
+#include "db/src/common.h"
+
+int initRack ( Rack *item, int id, int sound_queue_length, const char *db_path ) {
+   if ( !getRackByIdFromDB ( item, id, NULL, db_path ) ) {
+      return 0;
+   }
+   FORLISTN ( item->hive_list, i ) {
+      if ( !initMutex ( &item->hive_list.item[i].fly_counter.mutex ) ) {
+         return 0;
+      }
+   }
+   if ( !initMutex ( &item->cooler.mutex ) ) {
+      return 0;
+   }
+   if ( !initMutex ( &item->cooler.regulator.mutex ) ) {
+      return 0;
+   }
+   if ( !initMutex ( &item->cooler.em.mutex ) ) {
+      return 0;
+   }
+   if ( !initMutex ( &item->flyte.device ) ) {
+      return 0;
+   }
+   FIFO_INIT(&item->buzzer.queue, sound_queue_length)
+   if(item->buzzer.queue.length == sound_queue_length){
+     return 0;
+   }
+}
 
 void freeRack ( Rack * item ) {
    FREE_LIST ( item->hive_list );
@@ -19,22 +47,7 @@ void freeChannelList ( ChannelLList * list ) {
    list->length = 0;
 }
 
-int checkProg ( const Prog *item ) {
-   return 1;
-}
 
-int checkChannel ( const Channel *item ) {
-   int success = 1;
-   if ( item->cycle_duration.tv_sec < 0 ) {
-      fprintf ( stderr, "%s(): bad cycle_duration_sec where id = %d\n", F, item->id );
-      success = 0;
-   }
-   if ( item->cycle_duration.tv_nsec < 0 ) {
-      fprintf ( stderr, "%s(): bad cycle_duration_nsec where id = %d\n", F, item->id );
-      success = 0;
-   }
-   return success;
-}
 
 FUN_FIFO_PUSH ( int )
 

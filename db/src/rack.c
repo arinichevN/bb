@@ -45,14 +45,6 @@ static int getData_callback ( void *data, int argc, char **argv, char **azColNam
 
 static int checkData ( Rack *item ) {
    int success = 1;
-   if ( item->cycle_duration.tv_sec < 0 || item->cycle_duration.tv_nsec < 0 ) {
-      printde ( "bad rack.cycle_duration where id = %d", item->id );
-      success = 0;
-   }
-   if ( item->interval.tv_sec < 0 || item->interval.tv_nsec < 0 ) {
-      printde ( "bad rack.cycle_duration where id = %d", item->id );
-      success = 0;
-   }
    if ( !checkPin ( item->door.pin ) ) {
       printde ( "bad rack.door.pin where id = %d", item->id );
       success = 0;
@@ -76,7 +68,7 @@ int getRackByIdFromDB ( Rack *item, int id, sqlite3 *dbl, const char *db_path ) 
       if ( close ) db_close ( db );
       return 0;
    }
-   if(!getHiveListByIdFromDB ( &item->hive_list, item->id, db )){
+   if(!getRackHiveListByIdFromDB ( &item->hive_list, item->id, db )){
      if ( close ) db_close ( db );
       return 0;
    }

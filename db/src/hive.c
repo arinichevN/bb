@@ -44,60 +44,40 @@ static int getData_callback ( void *data, int argc, char **argv, char **azColNam
       return EXIT_FAILURE;
    }
 #undef N
-list->length++;
+   list->length++;
    return EXIT_SUCCESS;
 }
 
 static int checkData ( HiveList *list ) {
    int success = 1;
-   if ( item->cycle_duration.tv_sec < 0 || item->cycle_duration.tv_nsec < 0 ) {
-      printde ( "bad cooler.cycle_duration where id = %d", item->id );
-      success = 0;
-   }
-   if ( item->interval.tv_sec < 0 || item->interval.tv_nsec < 0 ) {
-      printde ( "bad cooler.cycle_duration where id = %d", item->id );
-      success = 0;
-   }
-   if ( !checkPin ( item->em.pin ) ) {
-      printde ( "bad cooler.pin where id = %d", item->id );
-      success = 0;
+   FORLi{
+     ;
    }
    return success;
 }
 
 int getRackHiveListByIdFromDB ( HiveList *list, int rack_id, sqlite3 *db ) {
-  RESET_LIST ( list )
-    int n = 0;
-    char *qn = "select count(*) FROM sound";
-    db_getInt ( &n, db, qn );
-    if ( n <= 0 ) {
-        return 1;
-    }
-    ALLOC_LIST ( list,n )
-    if ( list->max_length!=n ) {
-        putsde ( "failed to allocate memory\n" );
-        return 0;
-    }
-    char *q = "SELECT sound.id AS id, sound.sequence AS sequence, note.frequency AS frequency, sound.duration AS duration FROM sound INNER JOIN note ON sound.note_id = note.id ORDER BY id, sequence";
-    if ( !db_exec ( db, q, getSoundList_callback, list ) ) {
-        putsde ( "failed\n" );
-        FREE_LIST ( list );
-        return 0;
-    }
-    if ( !checkSoundList ( list ) ) {
-        FREE_LIST ( list );
-        return 0;
-    }
-    return 1;
+   RESET_LIST ( list )
+   int n = 0;
    char q[LINE_SIZE];
-   snprintf ( q, sizeof q, "SELECT * FROM rack_hive WHERE rack_id=%d LIMIT 1", rack_id );
-   memset ( item, 0, sizeof * item );
-   struct ds {void *p1; void *p2;} data = {.p1 = item, .p2 = db};
-   if ( !db_exec ( db, q, getData_callback, &data ) ) {
-      putsde ( " failed\n" );
+   snprintf ( q, sizeof q, "SELECT count(*) FROM rack_hive WHERE rack_id=%d", rack_id );
+   db_getInt ( &n, db, q );
+   if ( n <= 0 ) {
+      return 1;
+   }
+   ALLOC_LIST ( list, n )
+   if ( list->max_length != n ) {
+      putsde ( "failed to allocate memory\n" );
       return 0;
    }
-   if ( !checkData ( item ) ) {
+   snprintf ( q, sizeof q, "SELECT * FROM rack_hive WHERE rack_id=%d ORDER BY id", rack_id );
+   if ( !db_exec ( db, q, getData_callback, list ) ) {
+      putsde ( "failed\n" );
+      FREE_LIST ( list );
+      return 0;
+   }
+   if ( !checkData ( list ) ) {
+      FREE_LIST ( list );
       return 0;
    }
    return 1;

@@ -26,9 +26,9 @@ Thread threads[] =
 };
 
 #include "util.c"
-#include "db.c"
+#include "db/src/common.h"
 
-int readSettings ( TSVresult* r, const char *data_path, int *id, char **db_prog_path, char **db_log_path )
+int readSettings ( TSVresult* r, const char *data_path, int *port_id, int *rack_id, char **db_prog_path, char **db_log_path )
 {
   if ( !TSVinit ( r, data_path ) )
     {
