@@ -37,7 +37,13 @@ double dsToFloat(uint16_t v) {
     }
     return t;
 }
-
+int ds18b20_parse_address(uint8_t *address, char *address_str) {
+    int n = sscanf(address_str, "%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx", &address[0], &address[1], &address[2], &address[3], &address[4], &address[5], &address[6], &address[7]);
+    if (n != 8) {
+        return 0;
+    }
+    return 1;
+}
 int ds18b20_read_scratchpad(int pin, const uint8_t *addr, uint8_t *sp) {
     if (!onewire_match_rom(pin, addr)) {
         printde("onewire_match_rom() failed where pin = %d and address = %2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx\n", pin, addr[0], addr[1], addr[2], addr[3], addr[4], addr[5], addr[6], addr[7]);

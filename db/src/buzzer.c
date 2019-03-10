@@ -1,5 +1,5 @@
 
-#include "../../main.h"
+#include "common.h"
 static int getBuzzer_callback ( void *data, int argc, char **argv, char **azColName ) {
    Buzzer *item = data;
    int c = 0;
@@ -10,18 +10,24 @@ static int getBuzzer_callback ( void *data, int argc, char **argv, char **azColN
       } else if ( DB_COLUMN_IS ( "pin" ) ) {
          item->pin = DB_CVI;
          c++;
-      } else if ( DB_COLUMN_IS ( "delay_sec" ) ) {
+      } else if ( DB_COLUMN_IS ( "delay_s" ) ) {
          item->delay.tv_sec = DB_CVI;
          c++;
-      } else if ( DB_COLUMN_IS ( "delay_nsec" ) ) {
+      } else if ( DB_COLUMN_IS ( "delay_ns" ) ) {
          item->delay.tv_nsec = DB_CVI;
+         c++;
+	       } else if ( DB_COLUMN_IS ( "cycle_duration_s" ) ) {
+         item->cycle_duration.tv_sec = DB_CVI;
+         c++;
+      } else if ( DB_COLUMN_IS ( "cycle_duration_ns" ) ) {
+         item->cycle_duration.tv_nsec = DB_CVI;
          c++;
       } else {
          printde ( "unknown column (we will skip it): %s\n", DB_COLUMN_NAME );
          c++;
       }
    }
-#define N 4
+#define N 6
    if ( c != N ) {
       printde ( "required %d columns but %d found\n", N, c );
       return EXIT_FAILURE;
@@ -98,28 +104,37 @@ int getSoundListFromDB ( SoundList *list, sqlite3 *db ) {
     }
     return 1;
 }
-
-int getBuzzerByIdFromDB ( Buzzer *item, int id, sqlite3 *dbl, const char *db_path ) {
-   int close = 0;
-   sqlite3 *db = db_openAlt ( dbl, db_path, &close );
-   if ( db == NULL ) {
-      putsde ( " failed\n" );
-      return 0;
+static int checkBuzzer ( Buzzer *item ) {
+   int success = 1;
+   if ( item->delay.tv_sec < 0 || item->delay.tv_nsec < 0 ) {
+      printde ( "bad buzzer.delay where id = %d", item->id );
+      success = 0;
    }
+   if ( item->cycle_duration.tv_sec < 0 || item->cycle_duration.tv_nsec < 0 ) {
+      printde ( "bad buzzer.cycle_duration where id = %d", item->id );
+      success = 0;
+   }
+   if ( !checkPin ( item->pin ) ) {
+      printde ( "bad buzzer.pin where id = %d", item->id );
+      success = 0;
+   }
+   return success;
+}
+int getBuzzerByIdFromDB ( Buzzer *item, int id, sqlite3 *db) {
    char q[LINE_SIZE];
    snprintf ( q, sizeof q, "select * from buzzer where id=%d limit 1", id );
    memset ( item, 0, sizeof * item );
    if ( !db_exec ( db, q, getBuzzer_callback, item ) ) {
       putsde ( " failed\n" );
-      if ( close ) db_close ( db );
       return 0;
    }
    if(!getSoundListFromDB ( &item->sound_list, db )){
      putsde ( " failed to read sound list\n" );
-     if ( close ) db_close ( db );
      return 0;
    }
-   if ( close ) db_close ( db );
+   if(!checkBuzzer(item)){
+     return 0;
+   }
    return 1;
 }
 

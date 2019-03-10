@@ -74,10 +74,10 @@ double pid_mx(PID *p, double set_point, double input) {
                 output = p->kp * error + p->ki * integral_error + p->kd * derrivitive_error;
                 break;
         }
-        if (output > p->max_output) {
-            output = p->max_output;
-        } else if (output < p->min_output) {
-            output = p->min_output;
+        if (output > p->output_max) {
+            output = p->output_max;
+        } else if (output < p->output_min) {
+            output = p->output_min;
         } else {
             p->integral_error = integral_error;
         }
@@ -156,10 +156,10 @@ double pidwt_mx(PID *p, double set_point, double input, struct timespec tm) {
                 output = p->kp * error + p->ki * integral_error + p->kd * derrivitive_error;
                 break;
         }
-        if (output > p->max_output) {
-            output = p->max_output;
-        } else if (output < p->min_output) {
-            output = p->min_output;
+        if (output > p->output_max) {
+            output = p->output_max;
+        } else if (output < p->output_min) {
+            output = p->output_min;
         } else {
             p->integral_error = integral_error;
         }

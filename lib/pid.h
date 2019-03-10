@@ -21,8 +21,8 @@ typedef struct {
     double integral_error;
     double previous_error;
     double kp, ki, kd;
-    double max_output;
-    double min_output;
+    double output_max;
+    double output_min;
     double previous_output;
     struct timespec previous_time;
     int reset;

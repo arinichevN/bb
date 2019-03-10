@@ -13,5 +13,10 @@ extraParameters=-I"/usr/include/postgresql"
 forceCheck=true
 inconclusiveAnalysis=true
 
+[Defines And Includes][Compiler]
+Name=GCC
+Path=gcc
+Type=GCC
+
 [Project]
 VersionControlSupport=kdevgit

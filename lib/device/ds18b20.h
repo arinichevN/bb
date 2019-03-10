@@ -23,6 +23,8 @@
 
 extern double dsToFloat(uint16_t v) ;
 
+extern int ds18b20_parse_address(uint8_t *address, char *address_str) ;
+
 extern int ds18b20_read_scratchpad(int pin, const uint8_t *addr, uint8_t *sp) ;
 
 extern int ds18b20_write_scratchpad(int pin, const uint8_t *addr, const uint8_t *data) ;

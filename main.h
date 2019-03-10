@@ -97,9 +97,12 @@ typedef struct {
 } PWMDevice;
 
 typedef struct {
+  int id;
    int pin;
    uint8_t addr[DS18B20_SCRATCHPAD_BYTE_NUM];
    int resolution;
+   double value;
+   struct timespec tm;
 } DS18B20Device;
 
 typedef struct {
@@ -121,21 +124,16 @@ typedef struct {
 } Presence;
 
 typedef struct {
+  int id;
    struct timespec last_tm;
    struct timespec interval;
    int max_rows;
    Ton tmr;
    int state;
-} TempLogger;
+} Logger;
 
 typedef struct {
-   struct timespec interval;
-   int max_rows;
-   Ton tmr;
-   int state;
-} FlyLogger;
-
-typedef struct {
+   int id;
    int pin;
    struct timespec delay;
    int count;
@@ -147,6 +145,7 @@ typedef struct {
 } FlyCounter;
 
 typedef struct {
+  int id;
    PWMDevice device;
    double open_duty_cycle;
    double close_duty_cycle;
@@ -155,6 +154,7 @@ typedef struct {
 } Flyte;
 
 typedef struct {
+  int id;
    PWMDevice em;
    DS18B20Device sensor;
    PIDRegulator regulator;
@@ -176,8 +176,8 @@ typedef struct {
 typedef struct {
    int id;
    FlyCounter fly_counter;
-   FlyLogger fly_logger;
-   TempLogger temp_logger;
+   Logger fly_logger;
+   Logger temp_logger;
    Presence presence;
 
    int state;
@@ -193,32 +193,6 @@ typedef struct {
    Buzzer buzzer;
 } Rack;
 
-
-struct channel_st {
-   int id;
-   Rack rack;
-
-
-
-   int sock_fd;
-   int save;
-   struct timespec cycle_duration;
-   Mutex mutex;
-   pthread_t thread;
-   struct channel_st *next;
-};
-
-typedef struct channel_st Channel;
-
-DEC_LLIST ( Channel )
-
-struct thread_st {
-   char *id;
-   pthread_t thread;
-   struct timespec cycle_duration;
-};
-typedef struct thread_st Thread;
-DEC_LIST ( Thread )
 
 extern int readSettings();
 

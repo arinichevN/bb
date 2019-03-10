@@ -150,7 +150,7 @@ int pp_saveInstalledTime ( struct timespec item, int rack_id, int hive_id, int m
    return 1;
 }
 
-void  saveTemp ( TempLogger *item, int rack_id, int hive_id, Cooler *reg,  PGconn *db_conn ) {
+void  saveTemp ( Logger *item, int rack_id, int hive_id, Cooler *reg,  PGconn *db_conn ) {
    switch ( item->state ) {
       case WAIT:
          if ( ton ( &item->tmr ) ) {
@@ -159,9 +159,9 @@ void  saveTemp ( TempLogger *item, int rack_id, int hive_id, Cooler *reg,  PGcon
          break;
       case BUSY:
          if ( lockMutex ( &reg->mutex ) ) {
-            if ( item->last_tm != reg->tm ) {
-               pp_saveTemp ( reg->value, rack_id, hive_id, item->max_rows, db_conn );
-               item->last_tm = reg->tm;
+            if ( item->last_tm != reg->sensor.tm ) {
+               pp_saveTemp ( reg->sensor.value, rack_id, hive_id, item->max_rows, db_conn );
+               item->last_tm = reg->sensor.tm;
             }
             unlockMutex ( &reg->mutex );
          }
@@ -180,7 +180,7 @@ void  saveTemp ( TempLogger *item, int rack_id, int hive_id, Cooler *reg,  PGcon
    }
 }
 
-void  saveFly ( FlyLogger *item, int rack_id, int hive_id, FlyCounter *sensor,  PGconn *db_conn ) {
+void  saveFly ( Logger *item, int rack_id, int hive_id, FlyCounter *sensor,  PGconn *db_conn ) {
    switch ( item->state ) {
       case WAIT:
          if ( ton ( &item->tmr ) ) {
@@ -373,13 +373,13 @@ void tempControl ( Cooler *item ) {
    switch ( item->state ) {
       case RUN:
          if ( ton ( &item->tmr, item->interval ) ) {
-            double input;
-            int r = ds18b20_get_temp ( item->sensor.pin, item->sensor.addr, &input );
+            int r = ds18b20_get_temp ( item->sensor.pin, item->sensor.addr, &item->sensor.value );
             if ( !r ) {
                setPower ( &item->em, item->em.pwm.duty_cycle_min );
                return;
             }
-            double output = pid ( &item->regulator.pid, item->regulator.goal, input );
+            item->sensor.tm = getCurrentTime();
+            double output = pid ( &item->regulator.pid, item->regulator.goal, item->sensor.value );
             setPower ( &item->em, output );
          }
          break;
